@@ -11,6 +11,7 @@
 
 #include "variante.h"
 #include "readcmd.h"
+#include "execution.h"
 
 #ifndef VARIANTE
 #error "Variante non défini !!"
@@ -71,8 +72,8 @@ int main() {
 	while (1) {
 		struct cmdline *l;
 		char *line=0;
-		int i, j;
-		char *prompt = "ensishell>";
+		//int i, j;
+		char *prompt = "$ ";
 
 		/* Readline use some internal memory structure that
 		   can not be cleaned at the end of the program. Thus
@@ -120,14 +121,18 @@ int main() {
 		if (l->bg) printf("background (&)\n");
 
 		/* Display each command of the pipe */
-		for (i=0; l->seq[i]!=0; i++) {
+		for (int i=0; l->seq[i]!=0; i++) {
 			char **cmd = l->seq[i];
-			printf("seq[%d]: ", i);
-                        for (j=0; cmd[j]!=0; j++) {
-                                printf("'%s' ", cmd[j]);
-                        }
+			executecmd(cmd);
+			//printf("seq[%d]: ", i);
+			// for (int j=0; cmd[j]!=0; j++) {
+			// 				printf("'%s' ", cmd[j]);
+			// }
 			printf("\n");
 		}
+
+		/* Execute command */
+		//executecmd(l);
 	}
 
 }

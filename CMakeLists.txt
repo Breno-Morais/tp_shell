@@ -13,7 +13,7 @@ enable_testing()
 # Vous devez editer la lignes SET suivante pour y mettre vos logins
 # et le numéro de la variante que vous avez choisi
 #########
-set(VARIANTE_SUJET 10)
+set(VARIANTE_SUJET 1)
 ### FIN de la zone à éditer / END of the two line area to edit
 
 if (VARIANTE_SUJET EQUAL -1)
@@ -105,7 +105,7 @@ configure_file (
 # Si vous utilisez plusieurs fichiers, en plus de ensishell.c, pour votre
 # shell il faut les ajouter ici
 ##
-add_executable(ensishell src/readcmd.c src/ensishell.c)
+add_executable(ensishell src/readcmd.c src/ensishell.c src/execution.c)
 target_link_libraries(ensishell ${READLINE_LDFLAGS} ${GUILE_LDFLAGS})
 
 ##
