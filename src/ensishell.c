@@ -59,9 +59,10 @@ void terminate(char *line) {
 	exit(0);
 }
 
+tf_node *head_fond = NULL;
 
 int main() {
-        printf("Variante %d: %s\n", VARIANTE, VARIANTE_STRING);
+	printf("Variante %d: %s\n", VARIANTE, VARIANTE_STRING);
 
 #if USE_GUILE == 1
         scm_init_guile();
@@ -108,8 +109,6 @@ int main() {
 			terminate(0);
 		}
 		
-
-		
 		if (l->err) {
 			/* Syntax error, read another command */
 			printf("error: %s\n", l->err);
@@ -123,16 +122,17 @@ int main() {
 		/* Display each command of the pipe */
 		for (int i=0; l->seq[i]!=0; i++) {
 			char **cmd = l->seq[i];
-			executecmd(cmd);
+			if(l->bg)
+				executecmdFond(cmd);
+			else
+				executecmd(cmd);
+
 			//printf("seq[%d]: ", i);
 			// for (int j=0; cmd[j]!=0; j++) {
 			// 				printf("'%s' ", cmd[j]);
 			// }
-			printf("\n");
+			// printf("\n");
 		}
-
-		/* Execute command */
-		//executecmd(l);
 	}
 
 }
