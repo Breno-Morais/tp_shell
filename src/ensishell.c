@@ -73,7 +73,6 @@ int main() {
 	while (1) {
 		struct cmdline *l;
 		char *line=0;
-		//int i, j;
 		char *prompt = "$ ";
 
 		/* Readline use some internal memory structure that
@@ -115,24 +114,49 @@ int main() {
 			continue;
 		}
 
-		if (l->in) printf("in: %s\n", l->in);
-		if (l->out) printf("out: %s\n", l->out);
-		if (l->bg) printf("background (&)\n");
+		// if (l->in) printf("in: %s\n", l->in);
+		// if (l->out) printf("out: %s\n", l->out);
+		// if (l->bg) printf("background (&)\n");
 
-		/* Display each command of the pipe */
-		for (int i=0; l->seq[i]!=0; i++) {
-			char **cmd = l->seq[i];
+  	/* Main pipe creation */
+		int fd[2];
+		if(pipe(fd) != 0)
+		{
+			printf("Error creating pipe.");
+			exit(0);
+		}
+
+		char **cmd = l->seq[0];
+
+		/* Display both command of the pipe */
+		if(l->seq[1] != 0) { // Execute the pipe
+			char **cmd2 = l->seq[1];
+
+			pid_t pid = fork();
+
+			if(pid == 0)
+				executePipe(cmd, fd, 1);
+
+			else { // Father continues
+				pid_t pid2 = fork();
+
+				if(pid2 == 0) // Segunda criança
+					executePipe(cmd2, fd, 0);
+
+				else { // Ainda o pai lá
+					if (wait(NULL)==-1){
+						perror("wait: ");
+					}    
+				}
+			}
+		} else {
+			close(fd[0]);
+			close(fd[1]);
+
 			if(l->bg)
 				executecmdFond(cmd);
 			else
-				executecmd(cmd);
-
-			//printf("seq[%d]: ", i);
-			// for (int j=0; cmd[j]!=0; j++) {
-			// 				printf("'%s' ", cmd[j]);
-			// }
-			// printf("\n");
+				executecmd(cmd, l->in, l->out);
 		}
-	}
-
+	}	
 }

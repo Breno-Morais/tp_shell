@@ -1,7 +1,8 @@
 #include "execution.h"
 
-void executecmd(char **cmd)
+void executecmd(char **cmd, char *in, char *out)
 {  
+  // Special cases
   if(strcmp(cmd[0], "cd") == 0) 
   {
     chdir(cmd[1]);
@@ -38,13 +39,32 @@ void executecmd(char **cmd)
       }
     }
   }
-
+  
   pid_t pid = fork();
-  if(pid == 0)
+  if(pid == 0) // Child
   {
+    if(out != NULL)
+    {
+      int fd = open(out, O_WRONLY | O_APPEND | O_CREAT, 0666);    
+      if(fd == -1)
+        exit(0);
+
+      dup2(fd, STDOUT_FILENO);
+      close(fd);
+    }
+    if(in != NULL)
+    {
+      int fd = open(in, O_RDONLY);
+      if(fd == -1)
+        exit(0);
+
+      dup2(fd, STDIN_FILENO);
+      close(fd);
+    }
+
     execvp(cmd[0], cmd);
     exit(0);
-  } else {
+  } else { // Parent
     if (wait(NULL)==-1){
       perror("wait: ");
     }
@@ -87,4 +107,15 @@ void executecmdFond(char **cmd)
       }
     }
   }
+}
+
+void executePipe(char **cmd, int fd[2], int i)
+{
+  // Child updates the pipe
+  dup2(fd[i], i); // Replace standard output of child process with write end of the pipe
+  close(fd[0]); // Close the write end
+  close(fd[1]); // Close read end
+
+  execvp(cmd[0], cmd);
+  exit(0);
 }
