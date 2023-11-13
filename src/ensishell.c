@@ -33,7 +33,12 @@ int question6_executer(char *line)
 	 * parsecmd, then fork+execvp, for a single command.
 	 * pipe and i/o redirection are not required.
 	 */
-	printf("Not implemented yet: can not execute %s\n", line);
+	//printf("Not implemented yet: can not execute %s\n", line);
+	struct cmdline *l;
+
+	l = parsecmd( & line);
+
+	execute(l);
 
 	/* Remove this line when using parsecmd as it will free it */
 	free(line);
@@ -114,49 +119,6 @@ int main() {
 			continue;
 		}
 
-		// if (l->in) printf("in: %s\n", l->in);
-		// if (l->out) printf("out: %s\n", l->out);
-		// if (l->bg) printf("background (&)\n");
-
-  	/* Main pipe creation */
-		int fd[2];
-		if(pipe(fd) != 0)
-		{
-			printf("Error creating pipe.");
-			exit(0);
-		}
-
-		char **cmd = l->seq[0];
-
-		/* Display both command of the pipe */
-		if(l->seq[1] != 0) { // Execute the pipe
-			char **cmd2 = l->seq[1];
-
-			pid_t pid = fork();
-
-			if(pid == 0)
-				executePipe(cmd, fd, 1);
-
-			else { // Father continues
-				pid_t pid2 = fork();
-
-				if(pid2 == 0) // Segunda criança
-					executePipe(cmd2, fd, 0);
-
-				else { // Ainda o pai lá
-					if (wait(NULL)==-1){
-						perror("wait: ");
-					}    
-				}
-			}
-		} else {
-			close(fd[0]);
-			close(fd[1]);
-
-			if(l->bg)
-				executecmdFond(cmd);
-			else
-				executecmd(cmd, l->in, l->out);
-		}
-	}	
+		execute(l);
+	}
 }

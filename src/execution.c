@@ -1,7 +1,59 @@
 #include "execution.h"
 
-void executecmd(char **cmd, char *in, char *out)
-{  
+void execute(struct cmdline *l)
+{
+  /* Main pipe creation */
+  int fd[2];
+  if(pipe(fd) != 0)
+  {
+    printf("Error creating pipe.");
+    exit(0);
+  }
+
+  char **cmd = l->seq[0];
+  wordexp_t p;
+  glob_t g;
+
+  /* Display both command of the pipe */
+  if(l->seq[1] != 0) { // Execute the pipe
+    char **cmd2 = l->seq[1];
+
+    pid_t pid = fork();
+
+    if(pid == 0)
+    {
+      executePipe(cmd, fd, 1, &p, &g);
+    } else { // Father continues
+      pid_t pid2 = fork();
+
+      if(pid2 == 0) // Segunda criança
+      {  
+        executePipe(cmd2, fd, 0, &p, &g);
+      } else { // Ainda o pai lá
+        if (wait(NULL)==-1){
+          perror("wait: ");
+        }    
+      }
+    }
+  } else {
+    close(fd[0]);
+    close(fd[1]);
+
+    if(l->bg)
+      executecmdFond(cmd, &p, &g);
+    else
+      executecmd(cmd, l->in, l->out, &p, &g);
+  }
+
+  //wordfree(&p);
+  //globfree(&g);
+}	
+
+void executecmd(char **cmd, char *in, char *out, wordexp_t *p, glob_t *g)
+{ 
+  // Expand 
+  cmd = expandJoker(cmd, p, g);
+
   // Special cases
   if(strcmp(cmd[0], "cd") == 0) 
   {
@@ -62,6 +114,7 @@ void executecmd(char **cmd, char *in, char *out)
       close(fd);
     }
 
+    // Command execution
     execvp(cmd[0], cmd);
     exit(0);
   } else { // Parent
@@ -71,8 +124,11 @@ void executecmd(char **cmd, char *in, char *out)
   }
 }
 
-void executecmdFond(char **cmd)
+void executecmdFond(char **cmd, wordexp_t *p, glob_t *g)
 {  
+  // Expand 
+  cmd = expandJoker(cmd, p, g);
+
   pid_t pid = fork();
   if(pid == 0)
   {
@@ -109,8 +165,11 @@ void executecmdFond(char **cmd)
   }
 }
 
-void executePipe(char **cmd, int fd[2], int i)
+void executePipe(char **cmd, int fd[2], int i, wordexp_t *p, glob_t *g)
 {
+  // Expand 
+  cmd = expandJoker(cmd, p, g);
+
   // Child updates the pipe
   dup2(fd[i], i); // Replace standard output of child process with write end of the pipe
   close(fd[0]); // Close the write end
@@ -118,4 +177,65 @@ void executePipe(char **cmd, int fd[2], int i)
 
   execvp(cmd[0], cmd);
   exit(0);
+}
+
+char **expandJoker(char **cmd, wordexp_t *p, glob_t *g)
+{
+  // Variante
+  // Joker expansion
+
+  // Expand the entire cmd
+  switch (wordexp(cmd[0], p, 0))
+  {
+    case 0:			/* Successful.  */
+      break;
+    case WRDE_NOSPACE:
+      /* If the error was WRDE_NOSPACE,
+        then perhaps part of the result was allocated.  */
+      printf("ERROP SPACE\n");
+      wordfree (p);
+    default:                    /* Some other error.  */
+      printf("ERRO");
+      return cmd;
+  }
+
+  // Expand the entire cmd
+  switch (glob(cmd[0], GLOB_NOCHECK, NULL, g))
+  {
+    case 0:			/* Successful.  */
+      break;
+    case GLOB_NOSPACE:
+      /* If the error was GLOB_NOSPACE,
+        then perhaps part of the result was allocated.  */
+      printf("ERROG SPACE\n");
+      globfree (g);
+    default:                    /* Some other error.  */
+      printf("BAH zou");
+      return cmd;
+  }
+
+  /* Expand the strings specified for the arguments.  */
+  for (int i = 1; cmd[i] != NULL; i++)
+  {
+    int err = glob(cmd[i], GLOB_APPEND | GLOB_NOCHECK | GLOB_BRACE, NULL, g);
+    if(err)
+    {
+      printf("ERROG %d\n", err);
+      globfree (g);
+      return cmd;
+    }
+  }
+
+  for (int i = 1; i < g->gl_pathc; i++) 
+  {
+    int err = wordexp (g->gl_pathv[i], p, WRDE_APPEND);
+    if (err)
+      {
+        printf("ERROP %d\n", err);
+        wordfree (p);
+        return cmd;
+      }
+  }
+
+  return g->gl_pathv;
 }

@@ -9,12 +9,17 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <stdio.h>
+#include <wordexp.h>
+#include <glob.h>
 
 #define MAX_CMD_SIZE 10
 
-void executecmd(char** cmd, char *in, char *out);
-void executecmdFond(char **cmd);
-void executePipe(char **cmd, int fd[2], int i);
+void execute(struct cmdline *l);
+void executecmd(char** cmd, char *in, char *out, wordexp_t *p, glob_t *g);
+void executecmdFond(char **cmd, wordexp_t *p, glob_t *g);
+void executePipe(char **cmd, int fd[2], int i, wordexp_t *p, glob_t *g);
+char **expandJoker(char **cmd, wordexp_t *p, glob_t *g);
 
 typedef struct _TACHE_FOND {
   int pid;

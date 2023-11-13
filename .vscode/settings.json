@@ -1,6 +1,8 @@
 {
   "files.associations": {
     "execution.h": "c",
-    "readcmd.h": "c"
+    "readcmd.h": "c",
+    "wait.h": "c",
+    "signal.h": "c"
   }
 }
