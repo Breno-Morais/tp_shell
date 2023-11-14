@@ -1,5 +1,44 @@
 #include "execution.h"
 
+static char *newStringQuoted(char *s)
+{
+	// Calculate the length of the input string
+	size_t inputLength = strlen(s);
+
+	// Allocate memory for the modified string (maximum possible length is inputLength + number of added characters)
+	char* modifiedString = (char*)malloc((inputLength * 3 + 1) * sizeof(char));
+
+	if (modifiedString == NULL) {
+			fprintf(stderr, "Memory allocation failed\n");
+			exit(EXIT_FAILURE);
+	}
+
+	size_t j = 0; // Index for the modified string
+
+	for (size_t i = 0; i < inputLength; i++) {
+					//printf("I: %li, CHAR: %c, LEN: %li\n", i, s[i], inputLength);
+			if (s[i] == '{') {
+					// Add a single quote before the curly brace
+					modifiedString[j++] = '\'';
+					modifiedString[j++] = s[i];
+					modifiedString[j++] = '\'';		
+			} else if (s[i] == '}') {
+					// Add a single quote before the curly brace
+					modifiedString[j++] = '\'';
+					modifiedString[j++] = s[i];
+					modifiedString[j++] = '\'';		
+			} else
+				// Copy the current character to the modified string
+				modifiedString[j++] = s[i];			
+	}
+
+	// Null-terminate the modified string
+	modifiedString[j] = '\0';
+	//printf("||| %s\n", modifiedString);
+
+	return modifiedString;
+}
+
 void execute(struct cmdline *l)
 {
   /* Main pipe creation */
@@ -217,24 +256,27 @@ char **expandJoker(char **cmd, wordexp_t *p, glob_t *g)
   /* Expand the strings specified for the arguments.  */
   for (int i = 1; cmd[i] != NULL; i++)
   {
-    int err = glob(cmd[i], GLOB_APPEND | GLOB_NOCHECK | GLOB_BRACE, NULL, g);
+    char *formatted = newStringQuoted(cmd[i]);
+    int err = wordexp (formatted, p, WRDE_APPEND);
+    if (err)
+      {
+        printf("ERROP %d\n", err);
+        wordfree (p);
+        free(formatted);
+        return cmd;
+      }
+    free(formatted);
+  }
+
+  for (int i = 1; i < p->we_wordc; i++) 
+  {
+    int err = glob(p->we_wordv[i], GLOB_APPEND | GLOB_NOCHECK | GLOB_BRACE, NULL, g);
     if(err)
     {
       printf("ERROG %d\n", err);
       globfree (g);
       return cmd;
     }
-  }
-
-  for (int i = 1; i < g->gl_pathc; i++) 
-  {
-    int err = wordexp (g->gl_pathv[i], p, WRDE_APPEND);
-    if (err)
-      {
-        printf("ERROP %d\n", err);
-        wordfree (p);
-        return cmd;
-      }
   }
 
   return g->gl_pathv;
