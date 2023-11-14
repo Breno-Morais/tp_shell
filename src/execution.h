@@ -17,8 +17,7 @@
 
 void execute(struct cmdline *l);
 void executecmd(char** cmd, char *in, char *out, wordexp_t *p, glob_t *g);
-void executecmdFond(char **cmd, wordexp_t *p, glob_t *g);
-void executePipe(char **cmd, int fd[2], int i, wordexp_t *p, glob_t *g);
+void executecmdFond(char **cmd, char *in, char *out, wordexp_t *p, glob_t *g);
 char **expandJoker(char **cmd, wordexp_t *p, glob_t *g);
 
 typedef struct _TACHE_FOND {

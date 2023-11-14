@@ -3,7 +3,7 @@
 
 #define LOGINS Breno_da_Silva_Morais_dasilbre_Konan_Junior_Aime_Stephane_KOUADIO_kouadikj
 #define SUJET 5
-#define USE_GUILE 0
+#define USE_GUILE 1
 #define USE_GNU_READLINE 1
 
 #define VARIANTE SUJET

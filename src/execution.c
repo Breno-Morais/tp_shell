@@ -39,6 +39,32 @@ static char *newStringQuoted(char *s)
 	return modifiedString;
 }
 
+static void subst_in(char *in)
+{
+  if(in != NULL)
+  {
+    int fd = open(in, O_RDONLY);
+    if(fd == -1)
+      exit(0);
+
+    dup2(fd, STDIN_FILENO);
+    close(fd);
+  }
+}
+
+static void subst_out(char *out)
+{
+  if(out != NULL)
+  {
+    int fd = open(out, O_WRONLY | O_APPEND | O_CREAT, 0666);    
+    if(fd == -1)
+      exit(0);
+
+    dup2(fd, STDOUT_FILENO);
+    close(fd);
+  }
+}
+
 void execute(struct cmdline *l)
 {
   /* Main pipe creation */
@@ -52,26 +78,72 @@ void execute(struct cmdline *l)
   char **cmd = l->seq[0];
   wordexp_t p;
   glob_t g;
+  //int saved_stdout = dup(1); // The terminal output
 
-  /* Display both command of the pipe */
   if(l->seq[1] != 0) { // Execute the pipe
-    char **cmd2 = l->seq[1];
+    pid_t pid0 = fork();
 
-    pid_t pid = fork();
-
-    if(pid == 0)
+    if(pid0 == 0) // Child does the 
     {
-      executePipe(cmd, fd, 1, &p, &g);
-    } else { // Father continues
-      pid_t pid2 = fork();
+      int i;
+      for(i = 0; l->seq[i + 1] != NULL; i++)
+      {
+        cmd = l->seq[i];
 
-      if(pid2 == 0) // Segunda criança
-      {  
-        executePipe(cmd2, fd, 0, &p, &g);
-      } else { // Ainda o pai lá
-        if (wait(NULL)==-1){
-          perror("wait: ");
-        }    
+        pid_t pid = fork();
+
+        if(pid < 0) {
+          printf("Erro no forkn\n");
+          exit(0);
+        } else if(pid == 0)
+        {
+          // Expand 
+          cmd = expandJoker(cmd, &p, &g);
+
+          // Child updates the pipe
+          dup2(fd[1], 1); // Replace standard output of child process with write end of the pipe
+
+          close(fd[0]); // Close the write end
+          close(fd[1]); // Close read end
+
+          // Substitute  the i/o of the command
+          subst_in(l->in);
+          subst_out(l->out);
+
+          printf("1)DUP: (in:%d, out: %d)\n", dup(0), dup(1));
+          execvp(cmd[0], cmd);
+          exit(0);
+        } else { // Father continues
+          if (wait(NULL)==-1){
+            perror("wait: ");
+          }
+
+          // Parent updates the pipe
+          dup2(fd[0], 0); // Replace standard input of father process with read end of the pipe
+          close(fd[0]); // Close the write end
+          close(fd[1]); // Close read end
+
+          printf("2)DUP: (in:%d, out: %d)\n", dup(0), dup(1));
+
+          //fd = calloc(2, sizeof(int));
+          if(pipe(fd) != 0)
+          {
+            printf("Error creating pipe.");
+            exit(0);
+          }
+        }
+      }
+
+      if (wait(NULL)==-1){
+        perror("wait: ");
+      }
+
+      printf("3)DUP: (in:%d, out: %d)\n", dup(0), dup(1));
+      executecmd(l->seq[i], l->in, l->out, &p, &g);
+      exit(0);
+    } else {
+      if (wait(NULL)==-1){
+        perror("wait: ");
       }
     }
   } else {
@@ -79,11 +151,12 @@ void execute(struct cmdline *l)
     close(fd[1]);
 
     if(l->bg)
-      executecmdFond(cmd, &p, &g);
+      executecmdFond(cmd, l->in, l->out, &p, &g);
     else
       executecmd(cmd, l->in, l->out, &p, &g);
   }
 
+  //close(saved_stdout);
   //wordfree(&p);
   //globfree(&g);
 }	
@@ -134,24 +207,9 @@ void executecmd(char **cmd, char *in, char *out, wordexp_t *p, glob_t *g)
   pid_t pid = fork();
   if(pid == 0) // Child
   {
-    if(out != NULL)
-    {
-      int fd = open(out, O_WRONLY | O_APPEND | O_CREAT, 0666);    
-      if(fd == -1)
-        exit(0);
-
-      dup2(fd, STDOUT_FILENO);
-      close(fd);
-    }
-    if(in != NULL)
-    {
-      int fd = open(in, O_RDONLY);
-      if(fd == -1)
-        exit(0);
-
-      dup2(fd, STDIN_FILENO);
-      close(fd);
-    }
+    // Substitute  the i/o of the command
+    subst_in(in);
+    subst_out(out);
 
     // Command execution
     execvp(cmd[0], cmd);
@@ -163,7 +221,7 @@ void executecmd(char **cmd, char *in, char *out, wordexp_t *p, glob_t *g)
   }
 }
 
-void executecmdFond(char **cmd, wordexp_t *p, glob_t *g)
+void executecmdFond(char **cmd, char *in, char *out, wordexp_t *p, glob_t *g)
 {  
   // Expand 
   cmd = expandJoker(cmd, p, g);
@@ -171,6 +229,9 @@ void executecmdFond(char **cmd, wordexp_t *p, glob_t *g)
   pid_t pid = fork();
   if(pid == 0)
   {
+    // Substitute  the i/o of the command
+    subst_in(in);
+    subst_out(out);
     execvp(cmd[0], cmd);
     exit(0);
   } else {
@@ -202,20 +263,6 @@ void executecmdFond(char **cmd, wordexp_t *p, glob_t *g)
       }
     }
   }
-}
-
-void executePipe(char **cmd, int fd[2], int i, wordexp_t *p, glob_t *g)
-{
-  // Expand 
-  cmd = expandJoker(cmd, p, g);
-
-  // Child updates the pipe
-  dup2(fd[i], i); // Replace standard output of child process with write end of the pipe
-  close(fd[0]); // Close the write end
-  close(fd[1]); // Close read end
-
-  execvp(cmd[0], cmd);
-  exit(0);
 }
 
 char **expandJoker(char **cmd, wordexp_t *p, glob_t *g)
